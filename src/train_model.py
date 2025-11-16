@@ -6,7 +6,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
 import numpy as np
-
+import joblib
 # -----------------------------------------
 # 1. Carregar dados
 # -----------------------------------------
@@ -66,6 +66,8 @@ print("RMSE:", rmse)
 exemplo = X_test.iloc[0:1]
 preco_previsto = pipeline.predict(exemplo)[0]
 
-print("\nExemplo de entrada:")
-print(exemplo)
-print("\nPreço previsto:", preco_previsto)
+# Salvar o modelo treinado
+
+joblib.dump(pipeline, "../model.pkl")
+
+print("Modelo salvo como model.pkl")
