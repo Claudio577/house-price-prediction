@@ -1,17 +1,59 @@
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
 from xgboost import XGBRegressor
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 
+
 # ====================================================
-# CARREGAR DADOS E MODELO
+# 📌 CARREGAR DATASET
 # ====================================================
 df = pd.read_csv("data/train.csv")
 
 
 # ====================================================
-# MENU LATERAL
+# 📌 TREINAR O MODELO DENTRO DO STREAMLIT
+# (Evita erro de versão de pickle)
+# ====================================================
+
+st.sidebar.info("🔄 Treinando o modelo... (apenas na primeira carga)")
+
+# Features
+X = df.drop(["SalePrice", "Id"], axis=1)
+y = df["SalePrice"]
+
+cat_cols = X.select_dtypes(include=["object"]).columns
+num_cols = X.select_dtypes(exclude=["object"]).columns
+
+preprocess = ColumnTransformer([
+    ("cat", OneHotEncoder(handle_unknown="ignore"), cat_cols)
+], remainder="passthrough")
+
+modelo = XGBRegressor(
+    n_estimators=300,
+    learning_rate=0.05,
+    max_depth=5,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    random_state=42
+)
+
+pipeline = Pipeline([
+    ("prep", preprocess),
+    ("model", modelo)
+])
+
+pipeline.fit(X, y)
+
+
+# ====================================================
+# 📌 MENU LATERAL
 # ====================================================
 st.sidebar.title("🏠 Navegação")
 pagina = st.sidebar.radio(
@@ -30,12 +72,11 @@ pagina = st.sidebar.radio(
 # ====================================================
 if pagina == "🔮 Predição de Preço":
     st.title("🏡 Previsão de Preço de Imóvel")
-    st.write("Preencha os dados abaixo para prever o valor da casa.")
 
     neighborhoods = sorted(df["Neighborhood"].unique())
     kitchen_qual_list = sorted(df["KitchenQual"].unique())
 
-    # ------ Inputs ------
+    # Entradas do usuário
     overall_qual = st.slider("Qualidade geral (1 a 10)", 1, 10, 5)
     gr_liv_area = st.number_input("Área útil (GrLivArea)", 300, 6000, 1500)
     garage_cars = st.slider("Garagem (carros)", 0, 5, 1)
@@ -45,9 +86,8 @@ if pagina == "🔮 Predição de Preço":
     bairro = st.selectbox("Bairro (Neighborhood)", neighborhoods)
     kitchen_qual = st.selectbox("Qualidade da cozinha (KitchenQual)", kitchen_qual_list)
 
-
     if st.button("Prever preço"):
-        colunas = df.drop(["SalePrice", "Id"], axis=1).columns
+        colunas = X.columns
         entrada = pd.DataFrame(columns=colunas)
         entrada.loc[0] = 0
 
@@ -60,81 +100,64 @@ if pagina == "🔮 Predição de Preço":
         entrada["Neighborhood"] = bairro
         entrada["KitchenQual"] = kitchen_qual
 
-        preco = model.predict(entrada)[0]
-        st.success(f"💰 Preço estimado: **${preco:,.2f}**")
+        preco = pipeline.predict(entrada)[0]
 
+        st.success(f"💰 Preço estimado: **${preco:,.2f}**")
 
 
 # ====================================================
 # 📊 PÁGINA 2 — EDA
 # ====================================================
-if pagina == "📊 EDA (Análise Exploratória)":
-    st.title("📊 Análise Exploratória (EDA)")
+elif pagina == "📊 EDA (Análise Exploratória)":
+    st.title("📊 EDA — Análise Exploratória")
 
-    st.subheader("Distribuição dos preços")
+    st.subheader("Distribuição dos Preços")
     fig, ax = plt.subplots(figsize=(8, 4))
     sns.histplot(df["SalePrice"], bins=40, kde=True, ax=ax)
     st.pyplot(fig)
 
-    st.subheader("Correlação das variáveis com o preço")
+    st.subheader("Correlação com o Preço")
     corr = df.corr(numeric_only=True)["SalePrice"].sort_values(ascending=False)
     st.bar_chart(corr.head(15))
 
-    st.subheader("GrLivArea x Price")
+    st.subheader("GrLivArea x Preço")
     fig2, ax2 = plt.subplots(figsize=(8, 4))
     ax2.scatter(df["GrLivArea"], df["SalePrice"], alpha=0.5)
-    ax2.set_xlabel("GrLivArea")
-    ax2.set_ylabel("SalePrice")
     st.pyplot(fig2)
-
 
 
 # ====================================================
 # 📈 PÁGINA 3 — IMPORTÂNCIA DAS FEATURES
 # ====================================================
-if pagina == "📈 Importância das Features":
+elif pagina == "📈 Importância das Features":
     st.title("📈 Importância das Variáveis")
 
-    st.write("Importância calculada pelo modelo XGBoost ou RandomForest.")
-
     try:
-        # extrair importâncias do modelo
-        importances = model.named_steps["model"].feature_importances_
-        nomes = model.named_steps["prep"].get_feature_names_out()
+        importances = pipeline.named_steps["model"].feature_importances_
+        nomes = pipeline.named_steps["prep"].get_feature_names_out()
 
         df_imp = pd.DataFrame({"feature": nomes, "importance": importances})
-        df_imp = df_imp.sort_values("importance", ascending=False).head(20)
+        df_imp = df_imp.sort_values(by="importance", ascending=False).head(20)
 
         st.bar_chart(df_imp.set_index("feature"))
-
     except:
-        st.warning("Não foi possível extrair importâncias. Modelo pode não suportar.")
-
+        st.error("O modelo não possui informações de importância de features.")
 
 
 # ====================================================
 # 📘 PÁGINA 4 — SOBRE O DATASET
 # ====================================================
-if pagina == "📘 Sobre o Dataset":
+elif pagina == "📘 Sobre o Dataset":
     st.title("📘 Sobre o Dataset")
 
     st.write("""
-    Este projeto utiliza o famoso dataset **House Prices – Advanced Regression Techniques** da competição do Kaggle.
-    
-    **Descrição:**
-    - Contém 79 variáveis que descrevem casas em Ames, Iowa, EUA.
-    - O objetivo é prever o preço final de venda (SalePrice).
-    
-    **Algumas informações importantes:**
-    - Variáveis numéricas (ex: GrLivArea, YearBuilt)
-    - Variáveis categóricas (ex: Neighborhood, KitchenQual)
-    - Coluna alvo: **SalePrice**
-    
-    **Fonte:** https://www.kaggle.com/c/house-prices-advanced-regression-techniques
-    """)
+    Este projeto utiliza o dataset **House Prices – Advanced Regression Techniques** do Kaggle.
 
-    st.subheader("Primeiras linhas do dataset")
+    O objetivo é prever o preço final de venda de casas na cidade de Ames, Iowa (EUA).
+    """)
+    
+    st.subheader("Primeiras linhas")
     st.dataframe(df.head())
 
-    st.subheader("Informações estatísticas")
+    st.subheader("Estatísticas")
     st.write(df.describe())
