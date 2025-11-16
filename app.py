@@ -2,68 +2,100 @@ import streamlit as st
 import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-st.title("🏡 House Price Prediction (Melhorado)")
+# -------------------------------
+# Carregar dataset
+# -------------------------------
+df = pd.read_csv("data/train.csv")
 
-st.write("Preencha os dados abaixo para estimar o preço da casa:")
+# -------------------------------
+# MENU LATERAL
+# -------------------------------
+st.sidebar.title("🏠 Navegação")
+pagina = st.sidebar.radio("Ir para:", ["🔮 Predição de Preço", "📊 EDA (Análise Exploratória)"])
 
-# Carregar dataset para pegar colunas e valores possíveis
-df_treino = pd.read_csv("data/train.csv")
 
-# Campos categóricos e valores únicos
-neighborhoods = sorted(df_treino["Neighborhood"].unique())
-kitchen_qual_list = sorted(df_treino["KitchenQual"].unique())
 
-# ==== CAMPOS DO USUÁRIO ====
+# =====================================================================
+# 📌 PÁGINA 1 — PREDIÇÃO
+# =====================================================================
 
-overall_qual = st.slider("Qualidade geral (1 a 10)", 1, 10, 5)
-gr_liv_area = st.number_input("Área útil (GrLivArea)", min_value=300, max_value=6000, value=1500)
-garage_cars = st.slider("Garagem (número de carros)", 0, 5, 1)
-total_bsmt_sf = st.number_input("Área do porão (TotalBsmtSF)", 0, 3000, 800)
-year_built = st.number_input("Ano de construção (YearBuilt)", 1870, 2020, 1998)
-year_remod = st.number_input("Ano da reforma (YearRemodAdd)", 1950, 2020, 2005)
-bairro = st.selectbox("Bairro (Neighborhood)", neighborhoods)
-kitchen_qual = st.selectbox("Qualidade da Cozinha (KitchenQual)", kitchen_qual_list)
+if pagina == "🔮 Predição de Preço":
+    st.title("🏡 Previsão de Preço de Imóvel")
+    st.write("Preencha os dados abaixo para estimar o valor da casa.")
 
-# ==== BOTÃO DE PREVISÃO ====
+    # Lista de valores únicos
+    neighborhoods = sorted(df["Neighborhood"].unique())
+    kitchen_qual_list = sorted(df["KitchenQual"].unique())
 
-if st.button("Prever preço"):
+    # Campos do usuário
+    overall_qual = st.slider("Qualidade geral (1 a 10)", 1, 10, 5)
+    gr_liv_area = st.number_input("Área útil (GrLivArea)", 300, 6000, 1500)
+    garage_cars = st.slider("Garagem (número de carros)", 0, 5, 1)
+    total_bsmt_sf = st.number_input("Área do porão (TotalBsmtSF)", 0, 3000, 800)
+    year_built = st.number_input("Ano de construção (YearBuilt)", 1870, 2020, 1998)
+    year_remod = st.number_input("Ano da reforma (YearRemodAdd)", 1950, 2020, 2005)
+    bairro = st.selectbox("Bairro (Neighborhood)", neighborhoods)
+    kitchen_qual = st.selectbox("Qualidade da Cozinha (KitchenQual)", kitchen_qual_list)
 
-    st.write("Carregando modelo...")
-    model = joblib.load("model.pkl")
+    if st.button("Prever preço"):
+        model = joblib.load("model.pkl")
 
-    # Criar estrutura com TODAS as colunas do modelo
-    colunas = df_treino.drop(["SalePrice", "Id"], axis=1).columns
-    entrada = pd.DataFrame(columns=colunas)
-    entrada.loc[0] = 0
+        # Criar dataframe com TODAS as colunas
+        colunas = df.drop(["SalePrice", "Id"], axis=1).columns
+        entrada = pd.DataFrame(columns=colunas)
+        entrada.loc[0] = 0
 
-    # Preencher as colunas informadas
-    entrada["OverallQual"] = overall_qual
-    entrada["GrLivArea"] = gr_liv_area
-    entrada["GarageCars"] = garage_cars
-    entrada["TotalBsmtSF"] = total_bsmt_sf
-    entrada["YearBuilt"] = year_built
-    entrada["YearRemodAdd"] = year_remod
-    entrada["Neighborhood"] = bairro
-    entrada["KitchenQual"] = kitchen_qual
+        # Atualiza colunas preenchidas
+        entrada["OverallQual"] = overall_qual
+        entrada["GrLivArea"] = gr_liv_area
+        entrada["GarageCars"] = garage_cars
+        entrada["TotalBsmtSF"] = total_bsmt_sf
+        entrada["YearBuilt"] = year_built
+        entrada["YearRemodAdd"] = year_remod
+        entrada["Neighborhood"] = bairro
+        entrada["KitchenQual"] = kitchen_qual
 
-    # Prever
-    preco = model.predict(entrada)[0]
+        preco = model.predict(entrada)[0]
 
-    st.success(f"💰 Preço estimado: **${preco:,.2f}**")
+        st.success(f"💰 Preço estimado: **${preco:,.2f}**")
 
-# ---- GRÁFICOS -----
 
-st.header("📊 Distribuição dos Preços")
-fig, ax = plt.subplots()
-ax.hist(df_treino["SalePrice"], bins=40)
-ax.set_xlabel("Preço")
-ax.set_ylabel("Frequência")
-st.pyplot(fig)
 
-st.header("📈 Relação entre GrLivArea e Preço")
-fig2, ax2 = plt.subplots()
-ax2.scatter(df_treino["GrLivArea"], df_treino["SalePrice"], alpha=0.5)
-ax2.set_xlabel("GrLivArea")
-ax2.set_ylabel("SalePrice")
-st.pyplot(fig2)
+# =====================================================================
+# 📌 PÁGINA 2 — EDA
+# =====================================================================
+
+if pagina == "📊 EDA (Análise Exploratória)":
+    st.title("📊 Análise Exploratória de Dados (EDA)")
+    st.write("Explore insights sobre o conjunto de dados.")
+
+    # ---- Distribuição do preço ----
+    st.subheader("Distribuição dos Preços")
+    fig, ax = plt.subplots(figsize=(8, 4))
+    sns.histplot(df["SalePrice"], bins=40, kde=True, ax=ax)
+    st.pyplot(fig)
+
+    # ---- Correlação ----
+    st.subheader("Correlação com o preço")
+    corr = df.corr(numeric_only=True)["SalePrice"].sort_values(ascending=False)
+    st.bar_chart(corr.head(15))
+
+    # ---- Scatter GrLivArea ----
+    st.subheader("GrLivArea vs SalePrice")
+    fig2, ax2 = plt.subplots(figsize=(8, 4))
+    ax2.scatter(df["GrLivArea"], df["SalePrice"], alpha=0.5)
+    ax2.set_xlabel("GrLivArea")
+    ax2.set_ylabel("SalePrice")
+    st.pyplot(fig2)
+
+    # ---- Scatter OverallQual ----
+    st.subheader("OverallQual vs SalePrice")
+    fig3, ax3 = plt.subplots(figsize=(8, 4))
+    ax3.scatter(df["OverallQual"], df["SalePrice"], alpha=0.5)
+    ax3.set_xlabel("OverallQual")
+    ax3.set_ylabel("SalePrice")
+    st.pyplot(fig3)
+
+    st.info("Você pode adicionar MUITO mais gráficos se quiser. 😉")
