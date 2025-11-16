@@ -9,7 +9,6 @@ import numpy as np
 # CARREGAR DADOS E MODELO
 # ====================================================
 df = pd.read_csv("data/train.csv")
-model = joblib.load("model.pkl")  # modelo já carregado para várias páginas
 
 
 # ====================================================
