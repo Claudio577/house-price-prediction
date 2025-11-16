@@ -87,10 +87,11 @@ if pagina == "🔮 Predição de Preço":
     kitchen_qual = st.selectbox("Qualidade da cozinha (KitchenQual)", kitchen_qual_list)
 
     if st.button("Prever preço"):
-        colunas = X.columns
-        entrada = pd.DataFrame(columns=colunas)
-        entrada.loc[0] = 0
+    
+        # Pegamos uma linha REAL do dataset
+        entrada = X.iloc[[0]].copy()
 
+        # Substituímos SOMENTE os valores que o usuário informou
         entrada["OverallQual"] = overall_qual
         entrada["GrLivArea"] = gr_liv_area
         entrada["GarageCars"] = garage_cars
@@ -100,6 +101,7 @@ if pagina == "🔮 Predição de Preço":
         entrada["Neighborhood"] = bairro
         entrada["KitchenQual"] = kitchen_qual
 
+        # Previsão segura, sem erro de categorias
         preco = pipeline.predict(entrada)[0]
 
         st.success(f"💰 Preço estimado: **${preco:,.2f}**")
