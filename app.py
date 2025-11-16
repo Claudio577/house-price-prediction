@@ -1,9 +1,8 @@
-import streamlit as st
-import pandas as pd
-import joblib
-import matplotlib.pyplot as plt
-import seaborn as sns
-import numpy as np
+from xgboost import XGBRegressor
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
 
 # ====================================================
 # CARREGAR DADOS E MODELO
